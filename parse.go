@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"io"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -22,6 +23,7 @@ var URLFormater [](*KVPair) = [](*KVPair){
 	newKVPair(`\u0026`, `&`),
 	newKVPair(`\"`, `"`),
 	newKVPair(`\/`, `/`),
+	newKVPair(`:,`, `:"",`),
 }
 
 //YouTubeDOM is DOM tree of youtube
@@ -38,10 +40,11 @@ type VideoLink struct {
 	Url          string
 	Quality      string
 	QualityLabel string
+	MimeType     string
 }
 
 func (videoLink *VideoLink) validate() bool {
-	res := (videoLink.Url != "" && videoLink.Quality != "" && videoLink.QualityLabel != "")
+	res := (videoLink.Url != "" && strings.Contains(videoLink.MimeType, "audio/mp4"))
 	return res
 }
 
@@ -132,7 +135,6 @@ func urlFormat(raw []byte) []byte {
 	return res
 }
 
-//Render return the html of a html node
 func (youTubeRoot *YouTubeDOM) GetLinks() [](*VideoLink) {
 	data := make([]byte, 0)
 	w := writer{data: &data}

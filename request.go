@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 )
@@ -45,10 +44,9 @@ func (youtube *YouTube) GetResponse() io.Reader {
 }
 
 //NewYouTubeRequest creates a youtube client
-func NewYouTubeRequest(videoID string) *YouTube {
-	url := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoID)
+func NewYouTubeRequest(videoLink string) *YouTube {
 	client := &http.Client{}
-	request, err := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequest("GET", videoLink, nil)
 	if err != nil {
 		return nil
 	}
