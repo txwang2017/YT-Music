@@ -11,7 +11,7 @@ func Download(link *VideoLink, fileName string) {
 	buff := make([]byte, 10240)
 	filePath := filepath.Join(GetCurrDir(), fileName)
 	file, _ := os.Create(filePath)
-	for n, _ := resp.Body.Read(buff); n != 0; n, _ = resp.Body.Read(buff) {
+	for n, err := resp.Body.Read(buff); n != 0 && err == nil; n, err = resp.Body.Read(buff) {
 		file.Write(buff[:n])
 	}
 	file.Close()
