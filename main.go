@@ -1,7 +1,5 @@
 package main
 
-// "golang.org/x/net/html"
-
 func main() {
 	id := "VC2rAxRID9s"
 	youtube := NewYouTubeRequest(id)
