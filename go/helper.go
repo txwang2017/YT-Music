@@ -40,3 +40,9 @@ func GetUUID() string {
 	uid := uuid.New()
 	return uid.String()
 }
+
+func GetMusicDir() string {
+	path := os.Getenv("HOME")
+	path = filepath.Join(path, "Music")
+	return path
+}

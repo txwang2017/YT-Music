@@ -78,7 +78,7 @@ func displayProgress(length float64, status chan downloadStatus, wait *sync.Wait
 func (youTubeAudio *YouTubeAudio) Download(fileName string) {
 	resp, _ := http.Get(youTubeAudio.audioMeta.Url)
 	buff := make([]byte, 10240)
-	filePath := filepath.Join(GetCurrDir(), fileName)
+	filePath := filepath.Join(GetMusicDir(), fileName)
 	file, err := os.Create(filePath)
 	wait := sync.WaitGroup{}
 

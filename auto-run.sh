@@ -1,3 +1,4 @@
+lsof -ti:8000 | xargs kill -9
 pushd python
 virtualenv env --python=python3
 source env/bin/activate
