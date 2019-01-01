@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 )
 
 type AudioMeta struct {
@@ -28,6 +30,11 @@ type YouTubeAudio struct {
 	audioMeta *AudioMeta
 }
 
+type downloadStatus struct {
+	err        error
+	readLength int
+}
+
 func (youTubeAudio *YouTubeAudio) GetAudioMeta(url string) {
 	query := QueryRequest{
 		Id:  GetUUID(),
@@ -46,19 +53,54 @@ func (youTubeAudio *YouTubeAudio) GetAudioMeta(url string) {
 		metaData = append(metaData, buff[:n]...)
 	}
 	audioMeta := AudioMeta{}
-	fmt.Println(string(metaData))
 	json.Unmarshal(metaData, &audioMeta)
-	fmt.Println(audioMeta)
 	youTubeAudio.audioMeta = &audioMeta
+}
+
+func displayProgress(length float64, status chan downloadStatus, wait *sync.WaitGroup) {
+	currLength := 0
+	for {
+		currStatus := <-status
+		n, err := currStatus.readLength, currStatus.err
+		if err != nil {
+			if err.Error() == "EOF" {
+				fmt.Println("100% downloaded")
+			}
+			break
+		}
+		currLength += n
+		progress := float64(currLength) / length * 100
+		fmt.Printf("%.1f%% downloaded \n", progress)
+	}
+	wait.Done()
 }
 
 func (youTubeAudio *YouTubeAudio) Download(fileName string) {
 	resp, _ := http.Get(youTubeAudio.audioMeta.Url)
 	buff := make([]byte, 10240)
 	filePath := filepath.Join(GetCurrDir(), fileName)
-	file, _ := os.Create(filePath)
-	for n, err := resp.Body.Read(buff); n != 0 && err == nil; n, err = resp.Body.Read(buff) {
+	file, err := os.Create(filePath)
+	wait := sync.WaitGroup{}
+
+	if err != nil {
+		fmt.Println("Failed to create file")
+		return
+	}
+	status := make(chan downloadStatus)
+	length, err := strconv.ParseFloat(youTubeAudio.audioMeta.ContentLength, 64)
+	fmt.Println(length, err)
+	if err == nil {
+		wait.Add(1)
+		go displayProgress(length, status, &wait)
+	}
+	for {
+		n, err := resp.Body.Read(buff)
+		status <- downloadStatus{err: err, readLength: n}
+		if err != nil {
+			break
+		}
 		file.Write(buff[:n])
 	}
 	file.Close()
+	wait.Wait()
 }
