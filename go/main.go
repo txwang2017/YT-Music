@@ -3,17 +3,5 @@ package main
 func main() {
 	y := YouTubeAudio{}
 	y.GetAudioMeta(`https://www.youtube.com/watch?v=VC2rAxRID9s`)
-	// if len(os.Args) < 3 {
-	// 	fmt.Println("Need video URL and target file name")
-	// 	return
-	// }
-	// videoLink := os.Args[1]
-	// fileName := os.Args[2]
-	// youtube := NewYouTubeRequest(videoLink)
-	// resp := youtube.GetResponse()
-	// dom := GetYouTubeDOM(resp)
-	// dom.Parse(dom.root, "div", "id", "player-wrap", 0)
-	// dom.Parse(dom.currNode, "script", "", "", 3)
-	// links := dom.GetLinks()
-	// Download(links[0], fileName)
+	// y.Download("fengzhengwu.mp3")
 }
