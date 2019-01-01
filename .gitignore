@@ -1,3 +1,4 @@
 *.mp3
-fortest/
-run
+go/fortest/
+python/env
+python/*.pyc
