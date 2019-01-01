@@ -2,151 +2,57 @@ package main
 
 import (
 	"encoding/json"
-	"io"
-	"strings"
-
-	"golang.org/x/net/html"
+	"fmt"
+	"net"
 )
 
-type KVPair struct {
-	key []byte
-	val []byte
+// {"lastModified": "1540116568839208",
+// "quality": "tiny", "bitrate": 128319,
+//   "id": 19, "itag": 140, "audioQuality": "AUDIO_QUALITY_MEDIUM",
+//    "contentLength": "3782204", "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+// 	"approxDurationMs": "238097", "averageBitrate": 127081, "highReplication": true,
+// 	"initRange": {"start": "0", "end": "591"},
+// 	"url": "https://r3---sn-n4v7sn7l.googlevideo.com/videoplayback?dur=238.097&c=WEB&fvip=3&lmt=1540116568839208&clen=3782204&id=o-ABfV2Y1y5LR-mhj6mTMS4l78v9ab5ZSTvp6-tPDj2P5w&mn=sn-n4v7sn7l%2Csn-n4v7knls&mm=31%2C29&ip=2601%3A647%3A4000%3Ad7f7%3Aed4c%3A2ec7%3Af0b6%3A243b&ms=au%2Crdu&ei=Pd8qXPLvLMmNkgaNupmYDw&pl=34&mv=m&ipbits=0&sparams=clen%2Cdur%2Cei%2Cgir%2Cid%2Cinitcwndbps%2Cip%2Cipbits%2Citag%2Ckeepalive%2Clmt%2Cmime%2Cmm%2Cmn%2Cms%2Cmv%2Cpl%2Crequiressl%2Csource%2Cexpire&signature=2BC1B692618F01D33053BFE069340EBAD5564767.D65065E30962458DFC6CDBAAF9314632895C8041&source=youtube&txp=5432432&itag=140&expire=1546335133&key=yt6&mime=audio%2Fmp4&gir=yes&keepalive=yes&requiressl=yes&mt=1546313415&initcwndbps=1930000",
+// "audioSampleRate": "44100", "projectionType": "RECTANGULAR"}
+
+type AudioMeta struct {
+	Url              string
+	Id               string
+	AudioSampleRate  string
+	MimeType         string
+	AverageBitrate   int64
+	ContentLength    int64
+	ApproxDurationMs int64
 }
 
-func newKVPair(key, val string) *KVPair {
-	return &KVPair{key: []byte(key), val: []byte(val)}
+type QueryRequest struct {
+	Id  string `json:"id"`
+	Url string `json:"url"`
 }
 
-var URLFormater [](*KVPair) = [](*KVPair){
-	newKVPair(`\\\"`, `'`),
-	newKVPair(`\\u0026`, `&`),
-	newKVPair(`\u0026`, `&`),
-	newKVPair(`\"`, `"`),
-	newKVPair(`\/`, `/`),
-	newKVPair(`:,`, `:"",`),
+type YouTubeAudio struct {
 }
 
-//YouTubeDOM is DOM tree of youtube
-type YouTubeDOM struct {
-	root     *html.Node
-	currNode *html.Node
-}
-
-type writer struct {
-	data *[]byte
-}
-
-type VideoLink struct {
-	Url          string
-	Quality      string
-	QualityLabel string
-	MimeType     string
-}
-
-func (videoLink *VideoLink) validate() bool {
-	res := (videoLink.Url != "" && strings.Contains(videoLink.MimeType, "audio/mp4"))
-	return res
-}
-
-func (w writer) Write(p []byte) (n int, err error) {
-	*w.data = append(*w.data, p...)
-	return len(p), nil
-}
-
-func dfs(root *html.Node, tagName, attrKey, attrVal string, targetNum int) *html.Node {
-	currNum := 1
-	for ; root != nil; root = root.NextSibling {
-		res := dfs(root.FirstChild, tagName, attrKey, attrVal, targetNum)
-		if res != nil {
-			return res
-		}
-		if root.Type == html.ElementNode && root.Data == tagName {
-			currNum++
-			if attrKey == "" && attrVal == "" && currNum == targetNum {
-				return root
-			}
-			for _, attr := range root.Attr {
-				if attr.Key == attrKey && attr.Val == attrVal {
-					return root
-				}
-			}
-		}
+func (youTubeAudio *YouTubeAudio) GetAudioMeta(url string) *AudioMeta {
+	query := QueryRequest{
+		Id:  GetUUID(),
+		Url: url,
 	}
-	return nil
-}
-
-//GetYouTubeDOM returns the root of youtube DOM tree
-func GetYouTubeDOM(resp io.Reader) *YouTubeDOM {
-	root, err := html.Parse(resp)
+	request, _ := json.Marshal(query)
+	fmt.Println(string(request))
+	conn, err := net.Dial("tcp", "127.0.0.1:8000")
 	if err != nil {
+		fmt.Println(err)
 		return nil
 	}
-	ret := YouTubeDOM{
-		root:     root,
-		currNode: nil,
+	conn.Write(request)
+	buff := make([]byte, 1024)
+	metaData := make([]byte, 0)
+	for n, err := conn.Read(buff); n != 0 && err == nil; n, err = conn.Read(buff) {
+		metaData = append(metaData, buff[:n]...)
 	}
-	return &ret
-}
-
-//Parse get all the links
-func (youTubeRoot *YouTubeDOM) Parse(root *html.Node, tagName, attrKey, attrVal string, targetNum int) {
-	node := dfs(root, tagName, attrKey, attrVal, targetNum)
-	youTubeRoot.currNode = node
-}
-
-func searchData(raw *[]byte, head int, data *[][]byte) int {
-	cache := make([]byte, 0)
-	for i := head; i < len(*raw); i++ {
-		if (*raw)[i] == '{' {
-			i = searchData(raw, i+1, data)
-		} else if (*raw)[i] == '}' {
-			cache = append([]byte{'{'}, cache...)
-			cache = append(cache, '}')
-			*data = append(*data, cache)
-			return i
-		} else {
-			cache = append(cache, (*raw)[i])
-		}
-	}
-	return len(*raw)
-}
-
-func getData(raw []byte) [][]byte {
-	res := make([][]byte, 0)
-	searchData(&raw, 0, &res)
-	return res
-}
-
-func urlFormat(raw []byte) []byte {
-	res := make([]byte, 0)
-	for i := 0; i < len(raw); i++ {
-		flag := true
-		for _, kv := range URLFormater {
-			if i+len(kv.key) < len(raw) && CompareSlice(raw[i:i+len(kv.key)], kv.key) {
-				flag = false
-				res = append(res, kv.val...)
-				i += len(kv.key) - 1
-			}
-		}
-		if flag {
-			res = append(res, raw[i])
-		}
-	}
-	return res
-}
-
-func (youTubeRoot *YouTubeDOM) GetLinks() [](*VideoLink) {
-	data := make([]byte, 0)
-	w := writer{data: &data}
-	html.Render(w, youTubeRoot.currNode)
-	res := make([](*VideoLink), 0)
-	for _, link := range getData(data) {
-		l := VideoLink{}
-		link = urlFormat(link)
-		err := json.Unmarshal(link, &l)
-		if err == nil && l.validate() {
-			res = append(res, &l)
-		}
-	}
-	return res
+	audioMeta := AudioMeta{}
+	json.Unmarshal(metaData, &audioMeta)
+	fmt.Println(audioMeta)
+	return &audioMeta
 }

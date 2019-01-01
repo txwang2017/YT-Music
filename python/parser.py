@@ -7,8 +7,9 @@ from bs4 import BeautifulSoup
 class Parser:
     def __init__(self, data):
         obj = json.loads(data.decode('utf-8'))
-        self.id = obj.get('id')
-        self.url = obj.get('url')
+        print(obj, "***********")
+        self.id = obj.get('Id')
+        self.url = obj.get('Url')
         self.headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
             "accept-language": "en-US,en;q=0.9",

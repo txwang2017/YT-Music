@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 )
 
 //CompareBytes check if the target string is equal to string represents by byte array
@@ -32,4 +34,9 @@ func GetCurrDir() string {
 	path, _ = filepath.Abs(path)
 	currPath := filepath.Dir(path)
 	return currPath
+}
+
+func GetUUID() string {
+	uid := uuid.New()
+	return uid.String()
 }
