@@ -70,7 +70,7 @@ func displayProgress(length float64, status chan downloadStatus, wait *sync.Wait
 		}
 		currLength += n
 		progress := float64(currLength) / length * 100
-		fmt.Printf("%.1f%% downloaded \n", progress)
+		fmt.Printf("\r%.1f%% downloaded \n   ", progress)
 	}
 	wait.Done()
 }
