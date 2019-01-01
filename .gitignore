@@ -1,4 +1,5 @@
 *.mp3
+.vscode
 go/fortest/
 python/env
 python/*.pyc
