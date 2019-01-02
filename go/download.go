@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type AudioMeta struct {
+type YoutubeAudioMeta struct {
 	Url              string
 	Id               string
 	AudioSampleRate  string
@@ -30,10 +30,6 @@ type AudioMeta struct {
 type QueryRequest struct {
 	Id  string `json:"id"`
 	Url string `json:"url"`
-}
-
-type YouTubeAudio struct {
-	audioMeta *AudioMeta
 }
 
 type downloadStatus struct {
@@ -61,7 +57,7 @@ func (job *DownloadJob) init() error {
 }
 
 func (job *DownloadJob) validateUrl(url string) bool {
-	pattern, _ := regexp.Compile(`https://www.youtube.com/watch\?v=[A-Za-z0-9-]{11}`)
+	pattern, _ := regexp.Compile(`https://www.youtube.com/watch\?v=[A-Za-z0-9-_]{11}`)
 	return pattern.Match([]byte(url))
 }
 
@@ -109,7 +105,7 @@ func (job *DownloadJob) parseCommandLine() error {
 	return nil
 }
 
-func (youTubeAudio *YouTubeAudio) GetAudioMeta(url string) {
+func (job *DownloadJob) getAudioMeta(url string) (*YoutubeAudioMeta, error) {
 	query := QueryRequest{
 		Id:  GetUUID(),
 		Url: url,
@@ -117,8 +113,7 @@ func (youTubeAudio *YouTubeAudio) GetAudioMeta(url string) {
 	request, _ := json.Marshal(query)
 	conn, err := net.Dial("tcp", "127.0.0.1:8000")
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, err
 	}
 	conn.Write(request)
 	buff := make([]byte, 1024)
@@ -126,9 +121,9 @@ func (youTubeAudio *YouTubeAudio) GetAudioMeta(url string) {
 	for n, err := conn.Read(buff); n != 0 && err == nil; n, err = conn.Read(buff) {
 		metaData = append(metaData, buff[:n]...)
 	}
-	audioMeta := AudioMeta{}
+	audioMeta := YoutubeAudioMeta{}
 	json.Unmarshal(metaData, &audioMeta)
-	youTubeAudio.audioMeta = &audioMeta
+	return &audioMeta, nil
 }
 
 func displayProgress(length float64, status chan downloadStatus, wait *sync.WaitGroup) {
@@ -149,20 +144,17 @@ func displayProgress(length float64, status chan downloadStatus, wait *sync.Wait
 	wait.Done()
 }
 
-func (youTubeAudio *YouTubeAudio) Download(fileName string) {
-	resp, _ := http.Get(youTubeAudio.audioMeta.Url)
+func (job *DownloadJob) download(fileName string, audioMeta *YoutubeAudioMeta) error {
+	resp, _ := http.Get(audioMeta.Url)
 	buff := make([]byte, 10240)
 	filePath := filepath.Join(GetMusicDir(), fileName)
 	file, err := os.Create(filePath)
-	wait := sync.WaitGroup{}
-
 	if err != nil {
-		fmt.Println("Failed to create file")
-		return
+		return err
 	}
+	wait := sync.WaitGroup{}
 	status := make(chan downloadStatus)
-	length, err := strconv.ParseFloat(youTubeAudio.audioMeta.ContentLength, 64)
-	fmt.Println(length, err)
+	length, err := strconv.ParseFloat(audioMeta.ContentLength, 64)
 	if err == nil {
 		wait.Add(1)
 		go displayProgress(length, status, &wait)
@@ -176,5 +168,27 @@ func (youTubeAudio *YouTubeAudio) Download(fileName string) {
 		file.Write(buff[:n])
 	}
 	file.Close()
+	wait.Wait()
+	return nil
+}
+
+func (job *DownloadJob) Download() {
+	wait := sync.WaitGroup{}
+	wait.Add(len(job.Urls))
+	for i := 0; i < len(job.Urls); i++ {
+		go func(url, fileName string, wait *sync.WaitGroup) {
+			audioMeta, err := job.getAudioMeta(url)
+			if err != nil {
+				wait.Done()
+				return
+			}
+			err = job.download(fileName, audioMeta)
+			if err != nil {
+				wait.Done()
+				return
+			}
+			wait.Done()
+		}(job.Urls[i], job.FileNames[i], &wait)
+	}
 	wait.Wait()
 }
