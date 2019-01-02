@@ -2,13 +2,19 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 type AudioMeta struct {
@@ -33,6 +39,74 @@ type YouTubeAudio struct {
 type downloadStatus struct {
 	err        error
 	readLength int
+}
+
+type DownloadJob struct {
+	Urls      []string
+	FileNames []string
+}
+
+func NewDownloadJob() (*DownloadJob, error) {
+	job := DownloadJob{}
+	err := job.init()
+	if err == nil {
+		return &job, nil
+	}
+	return nil, err
+}
+
+func (job *DownloadJob) init() error {
+	err := job.parseCommandLine()
+	return err
+}
+
+func (job *DownloadJob) validateUrl(url string) bool {
+	pattern, _ := regexp.Compile(`https://www.youtube.com/watch\?v=[A-Za-z0-9-]{11}`)
+	return pattern.Match([]byte(url))
+}
+
+func (job *DownloadJob) parseCommandLine() error {
+	var url, fileName, urlListFile string
+	urls := make([]string, 0)
+	fileNames := make([]string, 0)
+	flag.StringVar(&url, "url", "", "URL of youtube video")
+	flag.StringVar(&fileName, "name", fmt.Sprintf("%s.mp3", uuid.New().String()), "File name of downloaded audio")
+	flag.StringVar(&urlListFile, "list", "", "File path that stored all the youtube video url")
+	flag.Parse()
+	if url == "" && urlListFile == "" {
+		return errors.New("Either url or list file is required")
+	}
+	if urlListFile != "" {
+		buff := make([]byte, 1024)
+		data := make([]byte, 0)
+		file, err := os.Open(urlListFile)
+		if err != nil {
+			return err
+		}
+		for {
+			n, err := file.Read(buff)
+			if err == nil {
+				data = append(data, buff[:n]...)
+			} else if err.Error() == "EOF" {
+				break
+			} else {
+				return err
+			}
+		}
+		urlsRaw := strings.Split(string(data), "\n")
+		for _, urlRaw := range urlsRaw {
+			if job.validateUrl(urlRaw) {
+				urls = append(urls, urlRaw)
+				fileNames = append(fileNames, fmt.Sprintf("%s.mp3", uuid.New().String()))
+			}
+		}
+	} else {
+		urls = append(urls, url)
+		fileNames = append(fileNames, fileName)
+	}
+	job.Urls = urls
+	job.FileNames = fileNames
+	return nil
 }
 
 func (youTubeAudio *YouTubeAudio) GetAudioMeta(url string) {
@@ -64,13 +138,13 @@ func displayProgress(length float64, status chan downloadStatus, wait *sync.Wait
 		n, err := currStatus.readLength, currStatus.err
 		if err != nil {
 			if err.Error() == "EOF" {
-				fmt.Println("100% downloaded")
+				fmt.Printf("\r 100% downloaded    ")
 			}
 			break
 		}
 		currLength += n
 		progress := float64(currLength) / length * 100
-		fmt.Printf("\r%.1f%% downloaded \n   ", progress)
+		fmt.Printf("\r%.1f%% downloaded   ", progress)
 	}
 	wait.Done()
 }
