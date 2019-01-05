@@ -8,5 +8,6 @@ popd
 
 pushd go
 go build -o run .
-./run
 popd
+
+ln go/run run
