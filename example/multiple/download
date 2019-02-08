@@ -1,0 +1,4 @@
+#!/bin/bash
+base=$(dirname $BASH_SOURCE | sed --expression 's/\.\///g')
+base=$(pwd)/$base
+docker run --mount "type=bind,source=$base/list.txt,target=/list.txt" --mount "type=bind,source=$HOME/Music,target=/Music" -e list="/list.txt" yt-downloader

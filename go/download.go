@@ -76,6 +76,7 @@ func (job *DownloadJob) parseCommandLine() error {
 		buff := make([]byte, 1024)
 		data := make([]byte, 0)
 		file, err := os.Open(urlListFile)
+		defer file.Close()
 		if err != nil {
 			return err
 		}
@@ -149,7 +150,9 @@ func (job *DownloadJob) download(fileName string, audioMeta *YoutubeAudioMeta) e
 	buff := make([]byte, 10240)
 	filePath := filepath.Join(GetMusicDir(), fileName)
 	file, err := os.Create(filePath)
+	defer file.Close()
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	wait := sync.WaitGroup{}
@@ -163,11 +166,11 @@ func (job *DownloadJob) download(fileName string, audioMeta *YoutubeAudioMeta) e
 		n, err := resp.Body.Read(buff)
 		status <- downloadStatus{err: err, readLength: n}
 		if err != nil {
+			fmt.Println(err)
 			break
 		}
 		file.Write(buff[:n])
 	}
-	file.Close()
 	wait.Wait()
 	return nil
 }
@@ -179,11 +182,13 @@ func (job *DownloadJob) Download() {
 		go func(url, fileName string, wait *sync.WaitGroup) {
 			audioMeta, err := job.getAudioMeta(url)
 			if err != nil {
+				fmt.Println(err)
 				wait.Done()
 				return
 			}
 			err = job.download(fileName, audioMeta)
 			if err != nil {
+				fmt.Println(err)
 				wait.Done()
 				return
 			}

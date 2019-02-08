@@ -42,7 +42,6 @@ func GetUUID() string {
 }
 
 func GetMusicDir() string {
-	path := os.Getenv("HOME")
-	path = filepath.Join(path, "Music")
+	path := "/Music"
 	return path
 }

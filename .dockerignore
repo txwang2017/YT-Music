@@ -1,0 +1,9 @@
+python/env
+go/fortest
+go/list
+python/__pycache__
+python/*.pyc
+example
+Dockerfile
+.vscode
+
