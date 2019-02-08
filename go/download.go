@@ -135,13 +135,13 @@ func displayProgress(length float64, status chan downloadStatus, sequence int, w
 		fmt.Printf("\033[%d;0H", sequence)
 		if err != nil {
 			if err.Error() == "EOF" {
-				fmt.Printf("\r 100% downloaded")
+				fmt.Printf("\r 100% downloaded		")
 			}
 			break
 		}
 		currLength += n
 		progress := float64(currLength) / length * 100
-		fmt.Printf("\r%.1f%% downloaded   ", progress)
+		fmt.Printf("\r%.1f%% downloaded		", progress)
 	}
 	wait.Done()
 }
