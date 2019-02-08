@@ -127,14 +127,15 @@ func (job *DownloadJob) getAudioMeta(url string) (*YoutubeAudioMeta, error) {
 	return &audioMeta, nil
 }
 
-func displayProgress(length float64, status chan downloadStatus, wait *sync.WaitGroup) {
+func displayProgress(length float64, status chan downloadStatus, sequence int, wait *sync.WaitGroup) {
 	currLength := 0
 	for {
 		currStatus := <-status
 		n, err := currStatus.readLength, currStatus.err
+		fmt.Printf("\033[%d;0H", sequence)
 		if err != nil {
 			if err.Error() == "EOF" {
-				fmt.Printf("\r 100% downloaded    ")
+				fmt.Printf("\r 100% downloaded")
 			}
 			break
 		}
@@ -145,7 +146,7 @@ func displayProgress(length float64, status chan downloadStatus, wait *sync.Wait
 	wait.Done()
 }
 
-func (job *DownloadJob) download(fileName string, audioMeta *YoutubeAudioMeta) error {
+func (job *DownloadJob) download(fileName string, audioMeta *YoutubeAudioMeta, sequence int) error {
 	resp, _ := http.Get(audioMeta.Url)
 	buff := make([]byte, 10240)
 	filePath := filepath.Join(GetMusicDir(), fileName)
@@ -160,7 +161,7 @@ func (job *DownloadJob) download(fileName string, audioMeta *YoutubeAudioMeta) e
 	length, err := strconv.ParseFloat(audioMeta.ContentLength, 64)
 	if err == nil {
 		wait.Add(1)
-		go displayProgress(length, status, &wait)
+		go displayProgress(length, status, sequence, &wait)
 	}
 	for {
 		n, err := resp.Body.Read(buff)
@@ -179,21 +180,21 @@ func (job *DownloadJob) Download() {
 	wait := sync.WaitGroup{}
 	wait.Add(len(job.Urls))
 	for i := 0; i < len(job.Urls); i++ {
-		go func(url, fileName string, wait *sync.WaitGroup) {
+		go func(url, fileName string, sequence int, wait *sync.WaitGroup) {
 			audioMeta, err := job.getAudioMeta(url)
 			if err != nil {
 				fmt.Println(err)
 				wait.Done()
 				return
 			}
-			err = job.download(fileName, audioMeta)
+			err = job.download(fileName, audioMeta, sequence)
 			if err != nil {
 				fmt.Println(err)
 				wait.Done()
 				return
 			}
 			wait.Done()
-		}(job.Urls[i], job.FileNames[i], &wait)
+		}(job.Urls[i], job.FileNames[i], i, &wait)
 	}
 	wait.Wait()
 }
