@@ -38,14 +38,19 @@ class Parser:
             else:
                 head += 1
         return ret
-    
+
+    def _get_title(self, raw_data):
+        self._title = raw_data.get('videoDetails', {}).get('title', self.id)
+
     def _parse(self):
         soup = BeautifulSoup(self.content, "html.parser")
         scripts = soup.find(name="div", attrs={"id": "player-wrap"}).find_all(name="script")
         script = scripts[1].get_text()
         raw_data = self._get_raw_data(script)[1]
         raw_data = json.loads(raw_data).get('args', {}).get('player_response', "{}")
-        self.data = json.loads(raw_data).get('streamingData', {}).get('adaptiveFormats', [])
+        raw_data = json.loads(raw_data)
+        self._get_title(raw_data)
+        self.data = raw_data.get('streamingData', {}).get('adaptiveFormats', [])
         for d in self.data:
             if 'audio/mp4' in d.get('mimeType'):
                 d['mimeType'] = unquote(d['mimeType'])
@@ -57,4 +62,5 @@ class Parser:
             self.content = await resp.read()
         audio_info = self._parse()
         audio_info.update({'id': self.id})
+        audio_info.update({'title': self._title})
         return json.dumps(audio_info)

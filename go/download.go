@@ -25,6 +25,7 @@ type YoutubeAudioMeta struct {
 	AverageBitrate   int64
 	ContentLength    string
 	ApproxDurationMs string
+	Title            string
 }
 
 type QueryRequest struct {
@@ -94,7 +95,7 @@ func (job *DownloadJob) parseCommandLine() error {
 		for _, urlRaw := range urlsRaw {
 			if job.validateUrl(urlRaw) {
 				urls = append(urls, urlRaw)
-				fileNames = append(fileNames, fmt.Sprintf("%s.mp3", uuid.New().String()))
+				fileNames = append(fileNames, "")
 			}
 		}
 	} else {
@@ -149,6 +150,9 @@ func displayProgress(length float64, status chan downloadStatus, sequence int, w
 func (job *DownloadJob) download(fileName string, audioMeta *YoutubeAudioMeta, sequence int) error {
 	resp, _ := http.Get(audioMeta.Url)
 	buff := make([]byte, 10240)
+	if fileName == "" {
+		fileName = audioMeta.Title
+	}
 	filePath := filepath.Join(GetMusicDir(), fileName)
 	file, err := os.Create(filePath)
 	defer file.Close()
